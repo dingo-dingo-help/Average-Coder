@@ -1,0 +1,212 @@
+********* FIRST: Add this new variable to BoardManager **********
+
+public bool[] castlingFlags { set; get;}
+
+********* SECOND: Add the follwing code in -> MoveChessman FUNCTION *********
+
+private void MoveChessman (int x, int y)
+    {
+        if(allowedMoves[x,y])
+        {
+            Chessman c = Chessmans[x, y];
+
+            if(c != null && c.isWhite != isWhiteTurn)
+            {
+                if (c.GetType () == typeof(King)) 
+                {
+                    EndGame(); 
+                    return;
+                }                
+
+//here is the new code. It analizes if rook has moved activating flags for right or left castling for white or black king:
+
+                if (c.GetType() == typeof(Rook))  
+                {
+                    if (!isWhiteTurn)
+                    {
+                        if (x == 7 && y == 0)
+                            castlingFlags[0] = true;
+                        else if (x == 0 && y == 0)
+                            castlingFlags[1] = true;                        
+                    }
+                    
+                    else
+                    {
+                        if (x == 7 && y == 7) 
+                            castlingFlags[3] = true;
+                        else if (x == 0 && y == 7) 
+                            castlingFlags[4] = true;                        
+                    }                    
+                }
+                                
+                activeChessman.Remove(c.gameObject);
+                Destroy(c.gameObject);
+
+               /* Here goes the En Passant Move, but I'm to lazy to put it. LOL :D */
+                
+               Castling(x, y);  //then we write this new function
+               
+               Chessmans[selectedChessman.currentX, selectedChessman.currentY] = null; 
+               selectedChessman.transform.position = GetTileCenter(x, y);
+               selectedChessman.SetPosition(x, y);
+               Chessmans[x, y] = selectedChessman;
+               isWhiteTurn= !isWhiteTurn; 
+
+        }
+
+        selectedChessman.GetComponent<MeshRenderer>().material = previousMaterial;
+        BoardHighlights.Instance.Hidehighlights();
+        selectedChessman= null; 
+
+    }
+                
+}
+
+******* THIRD: Create the Castling function in BoardManager ****************
+
+private void Castling (int x, int y)
+    {
+        if (selectedChessman.GetType() == typeof(King) || selectedChessman.GetType() == typeof(Rook)) 
+        {
+            if (isWhiteTurn)
+            {
+                if (selectedChessman.currentX== 7 && selectedChessman.currentY== 0)
+                    castlingFlags[0] = true;
+                else if (selectedChessman.currentX== 0 && selectedChessman.currentY== 0)
+                    castlingFlags[1] = true;
+                else if (selectedChessman.currentX== 4 && selectedChessman.currentY== 0)
+                    castlingFlags[2] = true;
+            }
+
+            else
+            {
+                if (selectedChessman.currentX== 7 && selectedChessman.currentY== 7)
+                    castlingFlags[3] = true;
+                else if (selectedChessman.currentX== 0 && selectedChessman.currentY== 7)
+                    castlingFlags[4] = true;
+                else if (selectedChessman.currentX== 4 && selectedChessman.currentY== 7)
+                    castlingFlags[5] = true;
+            }
+                        
+            Chessmans[x, y] = selectedChessman;
+
+        }
+    }
+
+******FOURTH AND LAST: Go to the King script and make the following changes ********
+
+public class King : Chessman
+{
+    public override bool [,] PossibleMove()
+    {
+        bool[,] r = new bool[8, 8];
+
+        Chessman c, ca1, ca2;
+        int i, j;
+
+        bool[] en = BoardManager.Instance.castlingFlags;
+               
+        //up
+        i = currentX - 1;
+        j = currentY + 1;
+       
+            for (int k = 0; k < 3; k++)
+            {
+                if (i != -1 && j != 8 && i != 8)//if(i >= 0 || i < 8)
+                {
+                    c = BoardManager.Instance.Chessmans[i, j];
+                    if (c == null)
+                        r[i, j] = true;
+                    else if (isWhite != c.isWhite)
+                        r[i, j] = true;
+                }
+                i++;
+            } 
+        
+
+        //Down 
+        i = currentX - 1;
+        j = currentY - 1;
+
+        
+            for (int k = 0; k < 3; k++)
+            {
+               if (i != -1 && j != -1 && i != 8)//if (i >= 0 || i < 8)
+               {
+                    c = BoardManager.Instance.Chessmans[i, j];
+                    if (c == null)
+                        r[i, j] = true;
+                    else if (isWhite != c.isWhite)
+                        r[i, j] = true;
+                }
+                i++;
+            }
+        
+        //left
+        if (currentX != 0)
+        {
+            c = BoardManager.Instance.Chessmans[currentX - 1, currentY ];
+            if (c == null)
+                r[currentX - 1, currentY ] = true; 
+            else if  (isWhite != c.isWhite) 
+                r[currentX - 1, currentY ] = true;
+
+
+            if (isWhite) //extra move for long castling for white team
+            {
+                if (en[2] == false && en[1] == false) 
+                {                    
+                        ca1 = BoardManager.Instance.Chessmans[currentX - 2, currentY ];
+                        ca2 = BoardManager.Instance.Chessmans[currentX - 3, currentY ];
+                        if (c == null && ca1 == null && ca2 == null)
+                            r[currentX - 2, currentY ] = true;               
+                }
+            }
+
+
+            else  //extra move for long castling for black team
+            {
+                if (en[5] == false && en[4] == false) 
+                {                    
+                        ca1 = BoardManager.Instance.Chessmans[currentX - 2, currentY ];
+                        ca2 = BoardManager.Instance.Chessmans[currentX - 3, currentY ];
+                        if (c == null && ca1 == null && ca2 == null)
+                            r[currentX - 2, currentY ] = true;                    
+                }
+            }                     
+
+        }
+
+        //right
+        if (currentX != 7)
+        {
+            c = BoardManager.Instance.Chessmans[currentX + 1, currentY ];
+            if (c == null)
+                r[currentX + 1, currentY ] = true;
+            else if (isWhite != c.isWhite)
+                r[currentX + 1, currentY ] = true;
+
+            if (isWhite)  //extra move for short castling for white team
+            {
+                if (en[2] == false && en[0] == false)  
+                {                    
+                        ca1 = BoardManager.Instance.Chessmans[currentX + 2, currentY ];
+                        if (c == null && ca1 == null)
+                            r[currentX + 2, currentY ] = true;                    
+                }
+            }
+
+            else  //extra move for short castling for black team
+            {
+                if (en[5] == false && en[3] == false) 
+                {                    
+                        ca1 = BoardManager.Instance.Chessmans[currentX + 2, currentY ];
+                        if (c == null && ca1 == null)                        
+                            r[currentX + 2, currentY ] = true;               
+                }
+            }         
+        }      
+        return r; 
+    }  
+}
+
